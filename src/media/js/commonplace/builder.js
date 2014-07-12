@@ -109,8 +109,7 @@ define('builder',
                     if ('as' in signature && 'key' in signature) {
                         request = models(signature.as).get(url, signature.key, pool.get);
                     } else {
-                        var noCache = !!signature.nocache;
-                        request = pool.get(url, noCache);
+                        request = pool.get(url, !!signature.nocache);
                     }
 
                     if ('id' in signature) {
@@ -181,6 +180,11 @@ define('builder',
                                 }
                                 // We can't do this for requests which have no pluck
                                 // and aren't an array. :(
+
+                                // Update the model cache in the background (bug 995288).
+                                pool.get(url).done(function(data) {
+                                    models(signature.as).cast(data);
+                                });
                             }
                         });
 
@@ -192,7 +196,9 @@ define('builder',
 
                         if (signature.paginate) {
                             pool.done(function() {
-                                make_paginatable(injector, document.getElementById(uid), signature.paginate);
+                                setTimeout(function() {
+                                    make_paginatable(injector, document.getElementById(uid), signature.paginate);
+                                });
                             });
                         }
                         return request;
@@ -255,6 +261,11 @@ define('builder',
                     });
                 } else {
                     var done = function(data) {
+                        if (signature.filters) {
+                            signature.filters.forEach(function(filterName) {
+                                data = env.filters[filterName](data);
+                            });
+                        }
                         document.getElementById(uid).innerHTML = data;
                     };
                     request.done(done).fail(function() {

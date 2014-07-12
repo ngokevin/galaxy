@@ -1,15 +1,9 @@
 console.log('Sample Commonplace App');
 
 require.config({
-    enforceDefine: true,
     paths: {
-        'jquery': 'lib/jquery-2.0.2',
-        'underscore': 'lib/underscore',
-        'nunjucks': 'lib/nunjucks',
-        'nunjucks.compat': 'lib/nunjucks.compat',
-        'templates': '../../templates',
-        'settings': ['settings_local', 'settings'],
-        'format': 'lib/format'
+        // require config is hack-defined at the bottom of lib/require.js.
+        // 'your_lib_module': 'lib/your_lib_module'
     }
 });
 
@@ -17,6 +11,7 @@ define(
     'main',
     [
         'helpers',  // Must come before mostly everything else.
+        'helpers_local',
         'forms',  // Comment this if your app has no forms.
         'l10n',
         'log',
@@ -56,22 +51,6 @@ function() {
     // Perform initial navigation.
     console.log('Triggering initial navigation');
     z.page.trigger('navigate', [window.location.pathname + window.location.search]);
-
-    // Debug page
-    (function() {
-        var to = false;
-        z.body.on('touchstart mousedown', '.wordmark', function(e) {
-            console.log('hold for debug...', e.type);
-            clearTimeout(to);
-            to = setTimeout(function() {
-                console.log('navigating to debug...');
-                z.page.trigger('navigate', ['/debug']);
-            }, 3000);
-        }).on('touchend mouseup', '.wordmark', function(e) {
-            console.log('debug hold released...', e.type);
-            clearTimeout(to);
-        });
-    })();
 
     console.log('Initialization complete');
 });

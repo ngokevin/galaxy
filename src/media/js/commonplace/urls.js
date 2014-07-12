@@ -1,8 +1,22 @@
 define('urls',
-    ['format', 'routes_api', 'routes_api_args', 'settings', 'user', 'utils'],
-    function(format, api_endpoints, api_args, settings, user) {
+    ['format', 'log', 'routes_api', 'routes_api_args', 'settings', 'user', 'utils'],
+    function(format, log, api_endpoints, api_args, settings, user, utils) {
 
-    var group_pattern = /\(.+\)/;
+    var console = log('urls');
+
+    // The CDN URL is the same as the media URL but without the `/media/` path.
+    if ('media_url' in settings) {
+        var a = document.createElement('a');
+        a.href = settings.media_url;
+        settings.cdn_url = a.protocol + '//' + a.host;
+        console.log('Using settings.media_url: ' + settings.media_url);
+        console.log('Changed settings.cdn_url: ' + settings.cdn_url);
+    } else {
+        settings.cdn_url = settings.api_url;
+        console.log('Changed settings.cdn_url to settings.api_url: ' + settings.api_url);
+    }
+
+    var group_pattern = /\([^\)]+\)/;
     var optional_pattern = /(\(.*\)|\[.*\]|.)\?/g;
     var reverse = function(view_name, args) {
         args = args || [];
@@ -43,14 +57,27 @@ define('urls',
             if (user.logged_in()) {
                 args._user = user.get_token();
             }
-            var blacklist = settings.api_param_blacklist || [];
-            for (var key in args) {
-                if (!args[key] || blacklist.indexOf(key) !== -1) {
-                    delete args[key];
-                }
-            }
-            return require('utils').urlparams(out, args);
+            _removeBlacklistedParams(args);
+            return utils.urlparams(out, args);
         };
+    }
+
+    function _anonymousArgs(func) {
+        return function() {
+            var out = func.apply(this, arguments);
+            var args = api_args();
+            _removeBlacklistedParams(args);
+            return utils.urlparams(out, args);
+        };
+    }
+
+    function _removeBlacklistedParams(args) {
+        var blacklist = settings.api_param_blacklist || [];
+        for (var key in args) {
+            if (!args[key] || blacklist.indexOf(key) !== -1) {
+                delete args[key];
+            }
+        }
     }
 
     function api(endpoint, args, params) {
@@ -58,15 +85,28 @@ define('urls',
             console.error('Invalid API endpoint: ' + endpoint);
             return '';
         }
-        var url = settings.api_url + format.format(api_endpoints[endpoint], args || []);
+
+        var path = format.format(api_endpoints[endpoint], args || []);
+        var url = apiHost(path) + path;
+
         if (params) {
-            return require('utils').urlparams(url, params);
+            return utils.urlparams(url, params);
         }
         return url;
     }
 
     function apiParams(endpoint, params) {
         return api(endpoint, [], params);
+    }
+
+    function apiHost(path) {
+        // If the API URL is already reversed, then here's where we determine
+        // whether that URL gets served from the API or CDN.
+        var host = settings.api_url;
+        if (settings.api_cdn_whitelist && utils.baseurl(path) in settings.api_cdn_whitelist) {
+            host = settings.cdn_url;
+        }
+        return host;
     }
 
     function media(path) {
@@ -86,10 +126,17 @@ define('urls',
         reverse: reverse,
         api: {
             url: _userArgs(api),
+            host: apiHost,
             params: _userArgs(apiParams),
             sign: _userArgs(function(url) {return url;}),
+            unsign: _anonymousArgs(function(url) {return url;}),
             unsigned: {
+                url: _anonymousArgs(api),
+                params: _anonymousArgs(apiParams)
+            },
+            base: {
                 url: api,
+                host: apiHost,
                 params: apiParams
             }
         },

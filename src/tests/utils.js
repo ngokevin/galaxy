@@ -7,6 +7,11 @@ var feq_ = a.feq_;
 var filters = require('nunjucks').require('filters');
 var utils = require('utils');
 
+test('String strip', function(done) {
+    eq_(('  a s d  f   ').strip(), 'asdf');
+    done();
+});
+
 test('_pd', function(done) {
     var ev = {preventDefault: done};
     utils._pd(function() {})(ev);
@@ -140,9 +145,6 @@ test('translate', function(done) {
     eq_(filters.translate({'blah': '3'}, dlobj, 'es-PD'), '3');
     eq_(filters.translate({'foo': 'bar', 'en-US': '3'}, null, 'es-PD'), '3');
     eq_(filters.translate({}, dlobj, 'es-PD'), '');
-    eq_(filters.translate('', dlobj, 'es-PD'), '');
-    eq_(filters.translate(null, dlobj, 'es-PD'), '');
-    eq_(filters.translate(undefined, dlobj, 'es-PD'), '');
     done();
 });
 
